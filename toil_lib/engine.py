@@ -131,9 +131,7 @@ def get_all_tasks():
 
 
 def display_tasks(tasks):
-    # for sorted(task, key=itemgetter(2)) in tasks:
     for task in reversed(sorted(tasks, key=lambda x: x[2])):
-    # for task in tasks.sort(key=lambda x: x[2]):
         if task[4] == "done":
             task_state = brightgreen("\U00002714")
             task_name = brightgreen(task[1])
@@ -148,7 +146,7 @@ def display_tasks(tasks):
             task_name = task[1]
 
         priority = int(task[2])
-    
+
         if priority == 1:
             priority = "-" + str(priority)
         elif priority == 2:
