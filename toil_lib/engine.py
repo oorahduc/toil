@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from operator import itemgetter
 import sqlite3
 import re
 from .style import *
@@ -34,6 +35,9 @@ def construct_task(task_params):
 
 def get_id(args):
     return re.findall(r'@(\d+)', args[0])
+
+def parse_args(args):
+    return re.findall(r'\@(\d+):(\d+)', args)
 
 
 def save_task(task, tags):
@@ -105,35 +109,102 @@ def get_tasks_by_tag(tag):
     except Exception as e:
         raise e
 
+def get_untagged_tasks():
+    con = init_db()
+    cur = con.cursor()
+    try:
+        tasks = cur.execute("select t.* from tasks t left join task_attributes ta on ta.taskid=t.id where ta.tag is NULL").fetchall()
+        con.close()
+        return list(tasks)
+    except Exception as e:
+        raise e
+
+def get_all_tasks():
+    con = init_db()
+    cur = con.cursor()
+    try:
+        tasks = cur.execute("select t.*, ta.tag from tasks t left join task_attributes ta on ta.taskid=t.id").fetchall()
+        con.close()
+        return list(tasks)
+    except Exception as e:
+        raise e
+
 
 def display_tasks(tasks):
-    for task in tasks:
+    # for sorted(task, key=itemgetter(2)) in tasks:
+    for task in reversed(sorted(tasks, key=lambda x: x[2])):
+    # for task in tasks.sort(key=lambda x: x[2]):
         if task[4] == "done":
-            task_state = supergreen("\U00002714")
+            task_state = brightgreen("\U00002714")
+            task_name = brightgreen(task[1])
         else:
             task_state = "\U0000274F"
+            task_name = task[1]
         if task[3] == 1:
-            starred = gold("\U0000272E ")
+            starred = brightyellow("\U0000272E ")
+            task_name = yellow(task[1])
         else:
             starred = ""
+            task_name = task[1]
+
+        priority = int(task[2])
+    
+        if priority == 1:
+            priority = "-" + str(priority)
+        elif priority == 2:
+            priority = "-" + yellow(str(priority))
+        elif priority == 3:
+            priority = "-" + red(str(priority))
+        else:
+            priority = "-" + str(priority)
+
 
         now = datetime.utcnow()
         created = datetime.strptime(task[5], '%Y-%m-%d %H:%M:%S')
         age = relativedelta(now, created)
-        print(f"    {'{0}.'.format(task[0]):<{3}} " + task_state + f" {starred:<{2}}{task[1]:<{40}}" + white(
+        print(f"    {'{0}.'.format(task[0]):<{3}} " + task_state + f" {starred:<{2}}{task_name:<{40}}" + f"p{priority:<{2}} " + white(
             str(age.days) + "d"))
     print("")
+
+
+def colorize(task):
+    # 0=id, 1=name, 2=priority, 3=star, 4=state, 5=created
+
+    done_sym = brightgreen("\U00002714")
+    pending_sym = "\U0000274F"
+
+    if task[4] == "done":
+        task_state = brightgreen("\U00002714")
+        task_name = brightgreen(task[1])
+    else:
+        task_state = "\U0000274F"
+        task_name = dim(task[1])
+    if task[3] == 1:
+        starred = brightyellow("\U0000272E ")
+        task_name = yellow(task[1])
+    else:
+        starred = ""
+        task_name = task[1]
+
+    # if pending, priority 1
+    ctask = f"    {'{0}.'.format(task[0]):<{3}} " + task_state + f" {starred:<{2}}{task_name:<{40}}" + white(
+        str(age.days) + "d")
+    # if pending priority 2
+
+    # if pending priority 3
+
+    # if done
 
 
 def count_tasks():
     con = init_db()
     cur = con.cursor()
     try:
-        all = cur.execute("select count(*) from tasks").fetchone()
+        all_tasks = cur.execute("select count(*) from tasks").fetchone()
         pending = cur.execute("select count(*) from tasks where state='pending'").fetchone()
         starred = cur.execute("select count(*) from tasks where starred=1").fetchone()
         con.close()
-        return [int(all[0]), int(pending[0]), int(starred[0])]
+        return [int(all_tasks[0]), int(pending[0]), int(starred[0])]
     except Exception as e:
         raise e
 
@@ -144,7 +215,7 @@ def star_task(task_id):
     try:
         task = cur.execute("select * from tasks where id=(?)", (task_id[0],)).fetchone()
         cur.execute("update tasks set starred=1 where id=(?)", (task_id[0],))
-        print("Starred " + gold("\U0000272E ") + task[1])
+        print("Starred " + brightyellow("\U0000272E ") + task[1])
         con.commit()
         con.close()
     except Exception as e:
@@ -171,6 +242,19 @@ def delete_task(task_id):
         task = cur.execute("select * from tasks where id=(?)", (task_id[0],)).fetchone()
         cur.execute("delete from tasks where id=(?)", (task_id[0],))
         print("Deleted " + task[1])
+        con.commit()
+        con.close()
+    except Exception as e:
+        raise e
+
+
+def prioritize(task_id, num):
+    con = init_db()
+    cur = con.cursor()
+    try:
+        task = cur.execute("select * from tasks where id=(?)", (task_id[0],)).fetchone()
+        cur.execute("update tasks set priority=(?) where id=(?)", (num, task_id[0],))
+        print("Set priority for " + brightyellow("\U0000272E ") + str(task[1]) + " to " + str(num))
         con.commit()
         con.close()
     except Exception as e:
