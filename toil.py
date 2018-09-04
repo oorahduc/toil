@@ -28,7 +28,7 @@ class BaseController(CementBaseController):
             display_tasks(untagged)
 
         for tag in tags:
-            tasks = get_tasks_by_tag(tag)
+            tasks = get_tasks_by_tag(tag, hidden=True)
             print("  " + tagline(tag[0]) + " [" + str(len(tasks)) + "]")
             display_tasks(tasks)
 
@@ -85,12 +85,10 @@ class BaseController(CementBaseController):
         delete_task(task_id)
         self.list()
 
-
     # toil priority @1 1
     @expose(help='set priority of a task')
     def priority(self):
         priority_args = self.app.pargs.args
-        print(priority_args)
         task_id = get_id(priority_args)
         prioritize(task_id, int(priority_args[1]))
         self.list()
@@ -99,6 +97,18 @@ class BaseController(CementBaseController):
     @expose(help='tag a task')
     def tag(self):
         tag_args = self.app.pargs.args
+
+    # toil hide @1
+    @expose(help='hide a task from the board')
+    def hide(self):
+        task_id = get_id(self.app.pargs.args)
+        hide(task_id)
+        self.list()
+
+    # toil hidden
+    @expose(help='list hidden tasks')
+    def hidden(self):
+        pass
 
 
 

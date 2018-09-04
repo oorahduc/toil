@@ -98,12 +98,18 @@ def get_tags():
         raise e
 
 
-def get_tasks_by_tag(tag):
+def get_tasks_by_tag(tag, hidden):
     con = init_db()
     cur = con.cursor()
     try:
-        tasks = cur.execute("select * from tasks where id IN (select taskid from task_attributes where tag=(?))",
-                            (tag[0],)).fetchall()
+        if hidden == True:
+            tasks = cur.execute(
+                "select * from tasks where id IN (select taskid from task_attributes where tag=(?)) AND hidden=1",
+                (tag[0],)).fetchall()
+        else:
+            tasks = cur.execute(
+                "select * from tasks where id IN (select taskid from task_attributes where tag=(?)) AND hidden=0",
+                (tag[0],)).fetchall()
         con.close()
         return list(tasks)
     except Exception as e:
@@ -124,6 +130,26 @@ def get_all_tasks():
     cur = con.cursor()
     try:
         tasks = cur.execute("select t.*, ta.tag from tasks t left join task_attributes ta on ta.taskid=t.id").fetchall()
+        con.close()
+        return list(tasks)
+    except Exception as e:
+        raise e
+
+def get_unhidden_tasks():
+    con = init_db()
+    cur = con.cursor()
+    try:
+        tasks = cur.execute("select t.*, ta.tag from tasks t left join task_attributes ta on ta.taskid=t.id where t.hidden=0").fetchall()
+        con.close()
+        return list(tasks)
+    except Exception as e:
+        raise e
+
+def get_hidden_tasks():
+    con = init_db()
+    cur = con.cursor()
+    try:
+        tasks = cur.execute("select t.*, ta.tag from tasks t left join task_attributes ta on ta.taskid=t.id where t.hidden=1").fetchall()
         con.close()
         return list(tasks)
     except Exception as e:
@@ -253,6 +279,24 @@ def prioritize(task_id, num):
         task = cur.execute("select * from tasks where id=(?)", (task_id[0],)).fetchone()
         cur.execute("update tasks set priority=(?) where id=(?)", (num, task_id[0],))
         print("Set priority for " + brightyellow("\U0000272E ") + str(task[1]) + " to " + str(num))
+        con.commit()
+        con.close()
+    except Exception as e:
+        raise e
+
+
+def hide(task_id):
+    con = init_db()
+    cur = con.cursor()
+    try:
+        task = cur.execute("select * from tasks where id=(?)", (task_id[0],)).fetchone()
+        if int(task[6]) == 1:
+            cur.execute("update tasks set hidden=0 where id=(?)", (task_id[0],))
+            result = "Unhiding"
+        else:
+            cur.execute("update tasks set hidden=1 where id=(?)", (task_id[0],))
+            result = "Hiding"
+        print("{0} task {1} - {2}".format(result, task[0], task[1]))
         con.commit()
         con.close()
     except Exception as e:
